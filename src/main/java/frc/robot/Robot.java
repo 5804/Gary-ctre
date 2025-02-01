@@ -139,9 +139,11 @@ public class Robot extends TimedRobot {
           SmartDashboard.putNumber(camera.getName() + "Pitch", bestTarget.getPitch());
           SmartDashboard.putNumber(camera.getName() + "Yaw", bestTarget.getYaw());
           SmartDashboard.putNumber(camera.getName() + "Range", PhotonUtils.calculateDistanceToTargetMeters(
-              .275, .65, // Vary targetHeightMeters and cameraHeightmeters to get accurate results.
+              .4, /*.65*/ aprilTagFieldLayout.getTagPose(bestTarget.getFiducialId()).get().getZ(), // Vary targetHeightMeters and cameraHeightmeters to get accurate results.
               Units.degreesToRadians(0), Units.degreesToRadians(bestTarget.getPitch())));
           SmartDashboard.putNumber(camera.getName() + "Ambiguity", bestTarget.getPoseAmbiguity());
+
+          // SmartDashboard.putNumber("TargetAngle", );
 
           // robotPose is used to store the position of the robot on the field
           Pose3d robotPose = new Pose3d(0, 0, 0, new Rotation3d(0, 0, 0)); 
