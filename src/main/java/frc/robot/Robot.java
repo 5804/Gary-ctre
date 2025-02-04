@@ -57,9 +57,9 @@ public class Robot extends TimedRobot {
 
   Transform3d[] cameraTransforms = {
     new Transform3d(0, 0.175, 0.35, new Rotation3d(0, 0, 0)), // Front camera Transform relative to the robot origin
-    new Transform3d(0.495, 0, 0.35, new Rotation3d(0, 0, -Math.PI/2)), // Right camera Transform relative to the robot origin
-    new Transform3d(0, -0.155, 0.35, new Rotation3d(0, 0, -Math.PI)), // Back camera Transform relative to the robot origin
-    new Transform3d(0.485, 0, 0.35, new Rotation3d(0, 0, Math.PI/2)), // Left camera Transform relative to the robot origin
+    new Transform3d(0.495, 0, 0.35, new Rotation3d(0, 0, 1.5 * Math.PI)), // Right camera Transform relative to the robot origin
+    new Transform3d(0, -0.155, 0.35, new Rotation3d(0, 0, Math.PI)), // Back camera Transform relative to the robot origin
+    new Transform3d(0.485, 0, 0.35, new Rotation3d(0, 0, 0.5 * Math.PI)), // Left camera Transform relative to the robot origin
   };
   
   private Command m_autonomousCommand;
