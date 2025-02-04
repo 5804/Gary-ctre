@@ -4,16 +4,9 @@
 
 package frc.robot;
 
-import java.lang.ModuleLayer.Controller;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-
-import org.opencv.core.Mat.Tuple2;
 import org.photonvision.PhotonCamera;
 import org.photonvision.PhotonUtils;
-import org.photonvision.proto.Photon;
 import org.photonvision.targeting.PhotonPipelineResult;
 import org.photonvision.targeting.PhotonTrackedTarget;
 
@@ -23,15 +16,13 @@ import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.util.Units;
-import edu.wpi.first.units.Unit;
-import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.TimedRobot;
-import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 
 public class Robot extends TimedRobot {
+
   // Stores the locations of the April Tags
   AprilTagFieldLayout aprilTagFieldLayout = AprilTagFields.k2025Reefscape.loadAprilTagLayoutField();
 
@@ -41,27 +32,25 @@ public class Robot extends TimedRobot {
   public PhotonCamera backCamera = new PhotonCamera("back");
   public PhotonCamera leftCamera = new PhotonCamera("left");
 
-  // PhotonCamera[] cameras = { // Maybe later
-  //   new PhotonCamera("front"),
-  //   new PhotonCamera("right"),
-  //   new PhotonCamera("back"),
-  //   new PhotonCamera("left")
-  // };
-
-  PhotonCamera[] cameras = { 
-    frontCamera,
-    rightCamera,
-    backCamera,
-    leftCamera
+  PhotonCamera[] cameras = {
+      frontCamera,
+      rightCamera,
+      backCamera,
+      leftCamera
   };
 
+  /* 
+  ** Camera orientations relative to robot origin.
+  ** Transforms are associated by index with PhotonCamera array (i.e. cameraTransforms[0] -> cameras[0])
+  ** TODO: Make a physical mark on Gary for what we consider to be the origin. 
+  */
   Transform3d[] cameraTransforms = {
-    new Transform3d(0, 0.175, 0.35, new Rotation3d(0, 0, 0)), // Front camera Transform relative to the robot origin
-    new Transform3d(0.495, 0, 0.35, new Rotation3d(0, 0, 1.5 * Math.PI)), // Right camera Transform relative to the robot origin
-    new Transform3d(0, -0.155, 0.35, new Rotation3d(0, 0, Math.PI)), // Back camera Transform relative to the robot origin
-    new Transform3d(0.485, 0, 0.35, new Rotation3d(0, 0, 0.5 * Math.PI)), // Left camera Transform relative to the robot origin
+      new Transform3d(0, 0.175, 0.35, new Rotation3d(0, 0, 0)),
+      new Transform3d(0.495, 0, 0.35, new Rotation3d(0, 0, 1.5 * Math.PI)),
+      new Transform3d(0, -0.155, 0.35, new Rotation3d(0, 0, Math.PI)),
+      new Transform3d(0.485, 0, 0.35, new Rotation3d(0, 0, 0.5 * Math.PI))                                  // robot origin
   };
-  
+
   private Command m_autonomousCommand;
 
   private final RobotContainer m_robotContainer;
@@ -130,23 +119,30 @@ public class Robot extends TimedRobot {
 
         // If there are targets captured
         if (result.hasTargets()) {
+          
           // Get the best target
           PhotonTrackedTarget bestTarget = result.getBestTarget();
-          // Boolean hasMultitagPose = result.getMultiTagResult().estimatedPose.isPresent; // Test MultiTag implementation
-
+          
+          // Boolean hasMultitagPose = result.getMultiTagResult().estimatedPose.isPresent;
+          // // Test MultiTag implementation
           // Update shuffleboard
           SmartDashboard.putNumber(camera.getName() + "ID", bestTarget.getFiducialId());
           SmartDashboard.putNumber(camera.getName() + "Pitch", bestTarget.getPitch());
           SmartDashboard.putNumber(camera.getName() + "Yaw", bestTarget.getYaw());
           SmartDashboard.putNumber(camera.getName() + "Range", PhotonUtils.calculateDistanceToTargetMeters(
-              .4, /*.65*/ aprilTagFieldLayout.getTagPose(bestTarget.getFiducialId()).get().getZ(), // Vary targetHeightMeters and cameraHeightmeters to get accurate results.
+              .4, /* .65 */ aprilTagFieldLayout.getTagPose(bestTarget.getFiducialId()).get().getZ(), // Vary
+                                                                                                     // targetHeightMeters
+                                                                                                     // and
+                                                                                                     // cameraHeightmeters
+                                                                                                     // to get accurate
+                                                                                                     // results.
               Units.degreesToRadians(0), Units.degreesToRadians(bestTarget.getPitch())));
           SmartDashboard.putNumber(camera.getName() + "Ambiguity", bestTarget.getPoseAmbiguity());
 
           // SmartDashboard.putNumber("TargetAngle", );
 
           // robotPose is used to store the position of the robot on the field
-          Pose3d robotPose = new Pose3d(0, 0, 0, new Rotation3d(0, 0, 0)); 
+          Pose3d robotPose = new Pose3d(0, 0, 0, new Rotation3d(0, 0, 0));
           // Calculate robot's field relative pose and store it in robot pose
           if (aprilTagFieldLayout.getTagPose(bestTarget.getFiducialId()).isPresent()) {
             robotPose = PhotonUtils.estimateFieldToRobotAprilTag(bestTarget.getBestCameraToTarget(),
@@ -157,14 +153,16 @@ public class Robot extends TimedRobot {
           SmartDashboard.putNumber("RobotY", robotPose.getY());
           SmartDashboard.putNumber("RobotZ", robotPose.getZ());
 
-        }/* else {
-          // Set shuffleboard values to 0 when no targets are seen
-          SmartDashboard.putNumber(camera.getName() + "ID", 0);
-          SmartDashboard.putNumber(camera.getName() + "Pitch", 0);
-          SmartDashboard.putNumber(camera.getName() + "Yaw", 0);
-          SmartDashboard.putNumber(camera.getName() + "Range", 0);
-          SmartDashboard.putNumber(camera.getName() + "Ambiguity", 0);
-        } */
+        } /*
+           * else {
+           * // Set shuffleboard values to 0 when no targets are seen
+           * SmartDashboard.putNumber(camera.getName() + "ID", 0);
+           * SmartDashboard.putNumber(camera.getName() + "Pitch", 0);
+           * SmartDashboard.putNumber(camera.getName() + "Yaw", 0);
+           * SmartDashboard.putNumber(camera.getName() + "Range", 0);
+           * SmartDashboard.putNumber(camera.getName() + "Ambiguity", 0);
+           * }
+           */
       }
     }
     c++;
@@ -236,5 +234,5 @@ public class Robot extends TimedRobot {
 
   @Override
   public void simulationPeriodic() {
-  } 
+  }
 }
