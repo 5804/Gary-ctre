@@ -4,6 +4,7 @@
 
 package frc.robot;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import org.photonvision.PhotonCamera;
 import org.photonvision.PhotonUtils;
@@ -16,6 +17,7 @@ import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.util.Units;
+import edu.wpi.first.units.measure.Time;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -106,73 +108,54 @@ public class Robot extends TimedRobot {
     SmartDashboard.putNumber("rightTargetRange", rightTargetRange);
   }
 
-  public void dumpCameraData(PhotonCamera[] cameras) {
-    int c = 0;
-    for (PhotonCamera camera : cameras) {
-      List<PhotonPipelineResult> frameResults = camera.getAllUnreadResults();
+  public void dumpCameraData(PhotonCamera[] cameras, Transform3d[] camreaTransforms) {
+    for(int cameraIndex=0; cameraIndex<cameras.length; cameraIndex++){
+      PhotonCamera currentCamera = cameras[cameraIndex];
+      Transform3d currentCameraTransform = camreaTransforms[cameraIndex];
+      List<PhotonPipelineResult> frameResults = currentCamera.getAllUnreadResults();
 
-      // If there are any target results
       if (!frameResults.isEmpty()) {
-
-        // load the target results (we dont know how to pick this index)
         PhotonPipelineResult result = frameResults.get(frameResults.size() - 1);
 
-        // If there are targets captured
-        if (result.hasTargets()) {
-          
-          // Get the best target
+        if (result.hasTargets()) {          
           PhotonTrackedTarget bestTarget = result.getBestTarget();
+          double bestTargetHeight = aprilTagFieldLayout.getTagPose(bestTarget.getFiducialId()).get().getZ();
+          double bestTargetPitch = aprilTagFieldLayout.getTagPose(bestTarget.getFiducialId()).get().getRotation().getY();
+          double currentCameraHeight = currentCameraTransform.getZ();
+          double currentCameraPitch = currentCameraTransform.getRotation().getY();
+          double bestTargetRange = PhotonUtils.calculateDistanceToTargetMeters(currentCameraHeight, bestTargetHeight, currentCameraPitch, bestTargetPitch);
+          Pose3d estimatedRobotPose = null;
+          String timestamp = "" + java.time.LocalDateTime.now().getHour() + ":" + java.time.LocalDateTime.now().getMinute() + ":" + java.time.LocalDateTime.now().getSecond();
           
-          // Boolean hasMultitagPose = result.getMultiTagResult().estimatedPose.isPresent;
-          // // Test MultiTag implementation
-          // Update shuffleboard
-          SmartDashboard.putNumber(camera.getName() + "ID", bestTarget.getFiducialId());
-          SmartDashboard.putNumber(camera.getName() + "Pitch", bestTarget.getPitch());
-          SmartDashboard.putNumber(camera.getName() + "Yaw", bestTarget.getYaw());
-          SmartDashboard.putNumber(camera.getName() + "Range", PhotonUtils.calculateDistanceToTargetMeters(
-              .4, /* .65 */ aprilTagFieldLayout.getTagPose(bestTarget.getFiducialId()).get().getZ(), // Vary
-                                                                                                     // targetHeightMeters
-                                                                                                     // and
-                                                                                                     // cameraHeightmeters
-                                                                                                     // to get accurate
-                                                                                                     // results.
-              Units.degreesToRadians(0), Units.degreesToRadians(bestTarget.getPitch())));
-          SmartDashboard.putNumber(camera.getName() + "Ambiguity", bestTarget.getPoseAmbiguity());
+          SmartDashboard.putNumber(currentCamera.getName() + ".bt.id", bestTarget.getFiducialId());
+          SmartDashboard.putNumber(currentCamera.getName() + ".bt.p", bestTarget.getPitch());
+          SmartDashboard.putNumber(currentCamera.getName() + ".bt.y", bestTarget.getYaw());
+          SmartDashboard.putNumber(currentCamera.getName() + ".bt.r", bestTargetRange);
+          SmartDashboard.putNumber(currentCamera.getName() + ".bt.a", bestTarget.getPoseAmbiguity());
 
-          // SmartDashboard.putNumber("TargetAngle", );
-
-          // robotPose is used to store the position of the robot on the field
-          Pose3d robotPose = new Pose3d(0, 0, 0, new Rotation3d(0, 0, 0));
-          // Calculate robot's field relative pose and store it in robot pose
-          if (aprilTagFieldLayout.getTagPose(bestTarget.getFiducialId()).isPresent()) {
-            robotPose = PhotonUtils.estimateFieldToRobotAprilTag(bestTarget.getBestCameraToTarget(),
-                aprilTagFieldLayout.getTagPose(bestTarget.getFiducialId()).get(),
-                cameraTransforms[c]); // Gets camera transforms from cameraTransforms using the counting variable c
+          if(bestTarget.getDetectedObjectConfidence() >= 0.5){
+            estimatedRobotPose = PhotonUtils.estimateFieldToRobotAprilTag(bestTarget.getBestCameraToTarget(), aprilTagFieldLayout.getTagPose(bestTarget.getFiducialId()).get(), currentCameraTransform);
+            
+            // Dump information to SmartDashboard. RTE = Robot Transform Estimation. RTE.Rot.X = Robot Transform Estimation's Rotation X. 
+            SmartDashboard.putNumber(currentCamera.getName() + ".rte.x", estimatedRobotPose.getX());
+            SmartDashboard.putNumber(currentCamera.getName() + ".rte.y", estimatedRobotPose.getY());
+            SmartDashboard.putNumber(currentCamera.getName() + ".rte.z", estimatedRobotPose.getZ());
+            SmartDashboard.putNumber(currentCamera.getName() + ".rte.rot.x", Units.radiansToDegrees(estimatedRobotPose.getRotation().getX()));
+            SmartDashboard.putNumber(currentCamera.getName() + ".rte.rot.y", Units.radiansToDegrees(estimatedRobotPose.getRotation().getY()));
+            SmartDashboard.putNumber(currentCamera.getName() + ".rte.rot.z", Units.radiansToDegrees(estimatedRobotPose.getRotation().getZ()));
+            SmartDashboard.putString(currentCamera.getName() + ".rte.timestamp", timestamp);
+          } else {
+            System.out.println("Warning: Reporting inadequate confidence for BestTarget " + bestTarget.fiducialId + " detected from the " + currentCamera + " camera");
           }
-          SmartDashboard.putNumber("RobotX", robotPose.getX());
-          SmartDashboard.putNumber("RobotY", robotPose.getY());
-          SmartDashboard.putNumber("RobotZ", robotPose.getZ());
-
-        } /*
-           * else {
-           * // Set shuffleboard values to 0 when no targets are seen
-           * SmartDashboard.putNumber(camera.getName() + "ID", 0);
-           * SmartDashboard.putNumber(camera.getName() + "Pitch", 0);
-           * SmartDashboard.putNumber(camera.getName() + "Yaw", 0);
-           * SmartDashboard.putNumber(camera.getName() + "Range", 0);
-           * SmartDashboard.putNumber(camera.getName() + "Ambiguity", 0);
-           * }
-           */
+        } 
       }
     }
-    c++;
   }
 
   @Override
   public void robotPeriodic() {
     CommandScheduler.getInstance().run();
-    // logCameraData();
-    dumpCameraData(cameras);
+    dumpCameraData(cameras, cameraTransforms);
   }
 
   @Override
