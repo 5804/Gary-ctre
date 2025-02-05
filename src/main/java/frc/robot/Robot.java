@@ -159,12 +159,6 @@ public class Robot extends TimedRobot {
     }
   }
 
-  // Updates PhotonPoseEstimator // Need to integrate camera offsets
-  public Optional<EstimatedRobotPose> getEstimatedGlobalPose(/* Pose3d prevEstimatedRobotPose, */ PhotonPipelineResult result) {
-    // photonPoseEstimator.setReferencePose(prevEstimatedRobotPose); // Not needed except for with CLOSEST_TO_REFERENCE_POSE
-    return photonPoseEstimator.update(result);
-  }
-
   public void dumpMultiTagData(PhotonCamera[] cameras, Transform3d[] cameraTransform) {
     for(int cameraIndex = 0; cameraIndex < cameras.length; cameraIndex++){
       PhotonCamera currentCamera = cameras[cameraIndex];
@@ -176,10 +170,8 @@ public class Robot extends TimedRobot {
         PhotonPipelineResult result = frameResults.get(frameResults.size() - 1);
 
         if (result.getMultiTagResult().isPresent()) {
-          Pose3d estimatedRobotPose = null;
+          Pose3d estimatedRobotPose = photonPoseEstimator.update(result).get().estimatedPose;
           String timestamp = "" + java.time.LocalDateTime.now().getHour() + ":" + java.time.LocalDateTime.now().getMinute() + ":" + java.time.LocalDateTime.now().getSecond();
-          
-          estimatedRobotPose = getEstimatedGlobalPose(result).get().estimatedPose;  
 
           // Dump information to SmartDashboard. RTE = Robot Transform Estimation. RTE.Rot.X = Robot Transform Estimation's Rotation X. 
           SmartDashboard.putNumber(currentCamera.getName() + ".frmt.rte.x", estimatedRobotPose.getX());
