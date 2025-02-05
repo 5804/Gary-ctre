@@ -4,19 +4,31 @@
 
 package frc.robot;
 
+import static edu.wpi.first.units.Units.Degrees;
+import static edu.wpi.first.units.Units.Meters;
+
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
+
+import javax.xml.crypto.dsig.keyinfo.RetrievalMethod;
+
+import org.photonvision.EstimatedRobotPose;
 import org.photonvision.PhotonCamera;
+import org.photonvision.PhotonPoseEstimator;
 import org.photonvision.PhotonUtils;
+import org.photonvision.PhotonPoseEstimator.PoseStrategy;
 import org.photonvision.targeting.PhotonPipelineResult;
 import org.photonvision.targeting.PhotonTrackedTarget;
 
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
 import edu.wpi.first.apriltag.AprilTagFields;
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.util.Units;
+import edu.wpi.first.units.DistanceUnit;
 import edu.wpi.first.units.measure.Time;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -33,6 +45,7 @@ public class Robot extends TimedRobot {
   public PhotonCamera rightCamera = new PhotonCamera("right");
   public PhotonCamera backCamera = new PhotonCamera("back");
   public PhotonCamera leftCamera = new PhotonCamera("left");
+  PhotonPoseEstimator photonPoseEstimator;
 
   PhotonCamera[] cameras = {
       frontCamera,
@@ -47,10 +60,10 @@ public class Robot extends TimedRobot {
   ** TODO: Make a physical mark on Gary for what we consider to be the origin. 
   */
   Transform3d[] cameraTransforms = {
-      new Transform3d(0, 0.175, 0.35, new Rotation3d(0, 0, 0)),
-      new Transform3d(0.495, 0, 0.35, new Rotation3d(0, 0, 1.5 * Math.PI)),
-      new Transform3d(0, -0.155, 0.35, new Rotation3d(0, 0, Math.PI)),
-      new Transform3d(0.485, 0, 0.35, new Rotation3d(0, 0, 0.5 * Math.PI))                                  // robot origin
+      new Transform3d(0, 0.175, 0.4, new Rotation3d(0, 0, 0)),
+      new Transform3d(0.495, 0, 0.4, new Rotation3d(0, 0, 1.5 * Math.PI)),
+      new Transform3d(0, -0.155, 0.4, new Rotation3d(0, 0, Math.PI)),
+      new Transform3d(0.485, 0, 0.4, new Rotation3d(0, 0, 0.5 * Math.PI))                                  // robot origin
   };
 
   private Command m_autonomousCommand;
@@ -108,10 +121,10 @@ public class Robot extends TimedRobot {
     SmartDashboard.putNumber("rightTargetRange", rightTargetRange);
   }
 
-  public void dumpCameraData(PhotonCamera[] cameras, Transform3d[] camreaTransforms) {
-    for(int cameraIndex=0; cameraIndex<cameras.length; cameraIndex++){
+  public void dumpSingleTagCameraData(PhotonCamera[] cameras, Transform3d[] cameraTransforms) {
+    for(int cameraIndex = 0; cameraIndex < cameras.length; cameraIndex++){
       PhotonCamera currentCamera = cameras[cameraIndex];
-      Transform3d currentCameraTransform = camreaTransforms[cameraIndex];
+      Transform3d currentCameraTransform = cameraTransforms[cameraIndex];
       List<PhotonPipelineResult> frameResults = currentCamera.getAllUnreadResults();
 
       if (!frameResults.isEmpty()) {
@@ -119,34 +132,63 @@ public class Robot extends TimedRobot {
 
         if (result.hasTargets()) {          
           PhotonTrackedTarget bestTarget = result.getBestTarget();
-          double bestTargetHeight = aprilTagFieldLayout.getTagPose(bestTarget.getFiducialId()).get().getZ();
-          double bestTargetPitch = aprilTagFieldLayout.getTagPose(bestTarget.getFiducialId()).get().getRotation().getY();
-          double currentCameraHeight = currentCameraTransform.getZ();
-          double currentCameraPitch = currentCameraTransform.getRotation().getY();
-          double bestTargetRange = PhotonUtils.calculateDistanceToTargetMeters(currentCameraHeight, bestTargetHeight, currentCameraPitch, bestTargetPitch);
           Pose3d estimatedRobotPose = null;
           String timestamp = "" + java.time.LocalDateTime.now().getHour() + ":" + java.time.LocalDateTime.now().getMinute() + ":" + java.time.LocalDateTime.now().getSecond();
           
           SmartDashboard.putNumber(currentCamera.getName() + ".bt.id", bestTarget.getFiducialId());
-          SmartDashboard.putNumber(currentCamera.getName() + ".bt.p", bestTarget.getPitch());
-          SmartDashboard.putNumber(currentCamera.getName() + ".bt.y", bestTarget.getYaw());
-          SmartDashboard.putNumber(currentCamera.getName() + ".bt.r", bestTargetRange);
-          SmartDashboard.putNumber(currentCamera.getName() + ".bt.a", bestTarget.getPoseAmbiguity());
+          SmartDashboard.putNumber(currentCamera.getName() + ".bt.x", bestTarget.getBestCameraToTarget().getMeasureX().in(Meters));
+          SmartDashboard.putNumber(currentCamera.getName() + ".bt.y", bestTarget.getBestCameraToTarget().getMeasureY().in(Meters));
+          SmartDashboard.putNumber(currentCamera.getName() + ".bt.z", bestTarget.getBestCameraToTarget().getMeasureZ().in(Meters));
+          SmartDashboard.putNumber(currentCamera.getName() + ".bt.rot.x", bestTarget.getBestCameraToTarget().getRotation().getMeasureX().in(Degrees));
+          SmartDashboard.putNumber(currentCamera.getName() + ".bt.rot.y", bestTarget.getBestCameraToTarget().getRotation().getMeasureY().in(Degrees));
+          SmartDashboard.putNumber(currentCamera.getName() + ".bt.rot.z", bestTarget.getBestCameraToTarget().getRotation().getMeasureZ().in(Degrees));
+          SmartDashboard.putNumber(currentCamera.getName() + ".bt.ambiguity", bestTarget.getPoseAmbiguity());
 
-          if(bestTarget.getDetectedObjectConfidence() >= 0.5){
-            estimatedRobotPose = PhotonUtils.estimateFieldToRobotAprilTag(bestTarget.getBestCameraToTarget(), aprilTagFieldLayout.getTagPose(bestTarget.getFiducialId()).get(), currentCameraTransform);
-            
-            // Dump information to SmartDashboard. RTE = Robot Transform Estimation. RTE.Rot.X = Robot Transform Estimation's Rotation X. 
-            SmartDashboard.putNumber(currentCamera.getName() + ".rte.x", estimatedRobotPose.getX());
-            SmartDashboard.putNumber(currentCamera.getName() + ".rte.y", estimatedRobotPose.getY());
-            SmartDashboard.putNumber(currentCamera.getName() + ".rte.z", estimatedRobotPose.getZ());
-            SmartDashboard.putNumber(currentCamera.getName() + ".rte.rot.x", Units.radiansToDegrees(estimatedRobotPose.getRotation().getX()));
-            SmartDashboard.putNumber(currentCamera.getName() + ".rte.rot.y", Units.radiansToDegrees(estimatedRobotPose.getRotation().getY()));
-            SmartDashboard.putNumber(currentCamera.getName() + ".rte.rot.z", Units.radiansToDegrees(estimatedRobotPose.getRotation().getZ()));
-            SmartDashboard.putString(currentCamera.getName() + ".rte.timestamp", timestamp);
-          } else {
-            System.out.println("Warning: Reporting inadequate confidence for BestTarget " + bestTarget.fiducialId + " detected from the " + currentCamera + " camera");
-          }
+          estimatedRobotPose = PhotonUtils.estimateFieldToRobotAprilTag(bestTarget.getBestCameraToTarget(), aprilTagFieldLayout.getTagPose(bestTarget.getFiducialId()).get(), currentCameraTransform);
+          
+          // Dump information to SmartDashboard. RTE = Robot Transform Estimation. RTE.Rot.X = Robot Transform Estimation's Rotation X. 
+          SmartDashboard.putNumber(currentCamera.getName() + ".fr.rte.x", estimatedRobotPose.getX());
+          SmartDashboard.putNumber(currentCamera.getName() + ".fr.rte.y", estimatedRobotPose.getY());
+          SmartDashboard.putNumber(currentCamera.getName() + ".fr.rte.z", estimatedRobotPose.getZ());
+          SmartDashboard.putNumber(currentCamera.getName() + ".fr.rte.rot.x", Units.radiansToDegrees(estimatedRobotPose.getRotation().getX()));
+          SmartDashboard.putNumber(currentCamera.getName() + ".fr.rte.rot.y", Units.radiansToDegrees(estimatedRobotPose.getRotation().getY()));
+          SmartDashboard.putNumber(currentCamera.getName() + ".fr.rte.rot.z", Units.radiansToDegrees(estimatedRobotPose.getRotation().getZ()));
+          SmartDashboard.putString(currentCamera.getName() + ".fr.rte.timestamp", timestamp);
+        } 
+      }
+    }
+  }
+
+  // Updates PhotonPoseEstimator // Need to integrate camera offsets
+  public Optional<EstimatedRobotPose> getEstimatedGlobalPose(Pose3d prevEstimatedRobotPose, PhotonPipelineResult result) {
+    // photonPoseEstimator.setReferencePose(prevEstimatedRobotPose); // Not needed except for with CLOSEST_TO_REFERENCE_POSE
+    return photonPoseEstimator.update(result);
+  }
+
+  public void dumpMultiTagData(PhotonCamera[] cameras, Transform3d[] cameraTransform) {
+    for(int cameraIndex = 0; cameraIndex < cameras.length; cameraIndex++){
+      PhotonCamera currentCamera = cameras[cameraIndex];
+      Transform3d currentCameraTransform = cameraTransforms[cameraIndex];
+      List<PhotonPipelineResult> frameResults = currentCamera.getAllUnreadResults();
+      photonPoseEstimator = new PhotonPoseEstimator(aprilTagFieldLayout, PoseStrategy.MULTI_TAG_PNP_ON_COPROCESSOR, currentCameraTransform);
+
+      if (!frameResults.isEmpty()) {
+        PhotonPipelineResult result = frameResults.get(frameResults.size() - 1);
+
+        if (result.getMultiTagResult().isPresent()) {
+          Pose3d estimatedRobotPose = null;
+          String timestamp = "" + java.time.LocalDateTime.now().getHour() + ":" + java.time.LocalDateTime.now().getMinute() + ":" + java.time.LocalDateTime.now().getSecond();
+          
+          estimatedRobotPose = getEstimatedGlobalPose(estimatedRobotPose, result).get().estimatedPose;  
+
+          // Dump information to SmartDashboard. RTE = Robot Transform Estimation. RTE.Rot.X = Robot Transform Estimation's Rotation X. 
+          SmartDashboard.putNumber(currentCamera.getName() + ".frmt.rte.x", estimatedRobotPose.getX());
+          SmartDashboard.putNumber(currentCamera.getName() + ".frmt.rte.y", estimatedRobotPose.getY());
+          SmartDashboard.putNumber(currentCamera.getName() + ".frmt.rte.z", estimatedRobotPose.getZ());
+          SmartDashboard.putNumber(currentCamera.getName() + ".frmt.rte.rot.x", Units.radiansToDegrees(estimatedRobotPose.getRotation().getX()));
+          SmartDashboard.putNumber(currentCamera.getName() + ".frmt.rte.rot.y", Units.radiansToDegrees(estimatedRobotPose.getRotation().getY()));
+          SmartDashboard.putNumber(currentCamera.getName() + ".frmt.rte.rot.z", Units.radiansToDegrees(estimatedRobotPose.getRotation().getZ()));
+          SmartDashboard.putString(currentCamera.getName() + ".frmt.rte.timestamp", timestamp);
         } 
       }
     }
@@ -154,8 +196,10 @@ public class Robot extends TimedRobot {
 
   @Override
   public void robotPeriodic() {
-    CommandScheduler.getInstance().run();
-    dumpCameraData(cameras, cameraTransforms);
+    CommandScheduler.getInstance().run(); // DON'T DELETE
+
+    // dumpSingleTagCameraData(cameras, cameraTransforms);
+    dumpMultiTagData(cameras, cameraTransforms);
   }
 
   @Override
