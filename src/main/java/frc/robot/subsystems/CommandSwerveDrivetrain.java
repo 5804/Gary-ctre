@@ -22,6 +22,7 @@ import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.Notifier;
 import edu.wpi.first.wpilibj.RobotController;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Subsystem;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
@@ -150,10 +151,10 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
                 ),
                 new PPHolonomicDriveController(
                     // PID constants for translation
-                    new PIDConstants(0.9, 0, 0), // kP: 20 // Current Happy values: kP: .9,1.63
+                    new PIDConstants(1, 0, 0), // kP: 20 // Current Happy values: kP: .9,1.63
                     // *** Decrease kP between 20-25 ***
                     // PID constants for rotation
-                    new PIDConstants(1.63, 0, 0) // kP: 15.975
+                    new PIDConstants(.9, 0, 0) // kP: 15.975
                 ),
                 config,
                 // Assume the path needs to be flipped for Red vs Blue, this is normally the case
@@ -187,6 +188,7 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
         if (Utils.isSimulation()) {
             startSimThread();
         }
+        configureAutoBuilder();
     }
 
     /**
@@ -272,6 +274,10 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
                 m_hasAppliedOperatorPerspective = true;
             });
         }
+
+        SmartDashboard.putNumber("Odometry X", getState().Pose.getX());
+        SmartDashboard.putNumber("Odometry Y", getState().Pose.getY());
+        SmartDashboard.putNumber("Angle", getState().Pose.getRotation().getDegrees());
     }
 
     private void startSimThread() {

@@ -6,12 +6,29 @@ package frc.robot;
 
 import static edu.wpi.first.units.Units.*;
 
+import java.util.List;
+
 import org.photonvision.PhotonCamera;
+import org.photonvision.PhotonPoseEstimator;
+import org.photonvision.PhotonPoseEstimator.PoseStrategy;
+import org.photonvision.targeting.PhotonPipelineResult;
 
 import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
 import com.ctre.phoenix6.swerve.SwerveRequest;
+import com.pathplanner.lib.commands.PathPlannerAuto;
 
+import edu.wpi.first.apriltag.AprilTagFieldLayout;
+import edu.wpi.first.apriltag.AprilTagFields;
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Transform3d;
+import edu.wpi.first.math.util.Units;
+import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
+import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardTab;
+import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
@@ -35,10 +52,32 @@ public class RobotContainer {
 
     private final CommandXboxController joystick = new CommandXboxController(0);
 
-    public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
+    public static final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
+
+    private ShuffleboardTab tab = Shuffleboard.getTab("Tab1");
+
+    private final SendableChooser<Command> autoChooser = new SendableChooser<>();
+
+    public static PhotonPoseEstimator photonPoseEstimator;
+
+    // Stores the locations of the April Tags
+    public static AprilTagFieldLayout aprilTagFieldLayout = AprilTagFields.k2025Reefscape.loadAprilTagLayoutField();
 
     public RobotContainer() {
         configureBindings();
+
+        autoChooser.addOption("Gary 1 Meter", Test1m());
+
+        autoChooser.addOption("Gary 90 degrees", Test90deg());
+
+        autoChooser.addOption("Circle Auto", Circle());
+
+        autoChooser.addOption("Circle Auto Smooth", CircleAutoSmooth());
+
+
+
+        SmartDashboard.putData("Auto choices", autoChooser);
+        tab.add("Auto Chooser", autoChooser);
     }
 
     private void configureBindings() {
@@ -77,6 +116,44 @@ public class RobotContainer {
     }
 
     public Command getAutonomousCommand() {
-        return Commands.print("No autonomous command configured");
+        return autoChooser.getSelected();
+    }
+
+    public static void addVisionMeasurementToOdometry(PhotonCamera[] cameras, Transform3d[] cameraTransforms) {
+        for(int cameraIndex = 0; cameraIndex < cameras.length; cameraIndex++){
+            PhotonCamera currentCamera = cameras[cameraIndex];
+            Transform3d currentCameraTransform = cameraTransforms[cameraIndex];
+            List<PhotonPipelineResult> frameResults = currentCamera.getAllUnreadResults();
+            photonPoseEstimator = new PhotonPoseEstimator(aprilTagFieldLayout, PoseStrategy.MULTI_TAG_PNP_ON_COPROCESSOR, currentCameraTransform);
+
+            if (!frameResults.isEmpty()) {
+                PhotonPipelineResult result = frameResults.get(frameResults.size() - 1);
+
+                if (result.getMultiTagResult().isPresent()) {
+                    Pose3d estimatedRobotPose = photonPoseEstimator.update(result).get().estimatedPose;
+                    Pose2d estimatedRobotPose2d = estimatedRobotPose.toPose2d();
+
+                    // If pose is close enough to current robot pose - send to odometry
+                    drivetrain.addVisionMeasurement(estimatedRobotPose2d, Timer.getFPGATimestamp());
+                }
+            }
+        }
+    }
+
+    // Auto Commands
+    public Command Test1m() {
+        return new PathPlannerAuto("Test1m");
+    }
+
+    public Command Test90deg() {
+        return new PathPlannerAuto("Test90deg");
+    }
+
+    public Command Circle() {
+        return new PathPlannerAuto("CircleAuto");
+    }
+
+    public Command CircleAutoSmooth() {
+        return new PathPlannerAuto("CircleAutoSmooth");
     }
 }

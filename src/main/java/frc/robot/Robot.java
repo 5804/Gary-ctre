@@ -155,13 +155,14 @@ public class Robot extends TimedRobot {
           SmartDashboard.putNumber(currentCamera.getName() + ".fr.rte.rot.y", Units.radiansToDegrees(estimatedRobotPose.getRotation().getY()));
           SmartDashboard.putNumber(currentCamera.getName() + ".fr.rte.rot.z", Units.radiansToDegrees(estimatedRobotPose.getRotation().getZ()));
           SmartDashboard.putString(currentCamera.getName() + ".fr.rte.timestamp", timestamp);
+
         } 
       }
     }
   }
   
 
-  public void dumpMultiTagData(PhotonCamera[] cameras, Transform3d[] cameraTransform) {
+  public void dumpMultiTagData(PhotonCamera[] cameras, Transform3d[] cameraTransforms) {
     for(int cameraIndex = 0; cameraIndex < cameras.length; cameraIndex++){
       PhotonCamera currentCamera = cameras[cameraIndex];
       Transform3d currentCameraTransform = cameraTransforms[cameraIndex];
@@ -194,6 +195,8 @@ public class Robot extends TimedRobot {
 
     dumpSingleTagCameraData(cameras, cameraTransforms);
     // dumpMultiTagData(cameras, cameraTransforms);
+    // RobotContainer.addVisionMeasurementToOdometry(cameras, cameraTransforms);
+    
   }
 
   @Override
