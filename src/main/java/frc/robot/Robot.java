@@ -60,7 +60,7 @@ public class Robot extends TimedRobot {
   ** TODO: Make a physical mark on Gary for what we consider to be the origin. Also remeasure transforms.
   */
   Transform3d[] cameraTransforms = {
-      new Transform3d(0.18, -0.32, 0.4, new Rotation3d(0, 0, 0)), // front
+      new Transform3d(0.16, -0.33, 0.4, new Rotation3d(0, 0, 0)), // front
       new Transform3d(0, 0.5, 0.4, new Rotation3d(0, 0, 0.5 * Math.PI)), // left
       new Transform3d(-0.18, 0.32, 0.4, new Rotation3d(0, 0, Math.PI)), // back
       new Transform3d(0, -0.5, 0.4, new Rotation3d(0, 0, 1.5 * Math.PI)) // right
