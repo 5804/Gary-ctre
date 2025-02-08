@@ -42,28 +42,29 @@ public class Robot extends TimedRobot {
 
   // Declaration of PhotonVision cameras
   public PhotonCamera frontCamera = new PhotonCamera("front");
-  public PhotonCamera rightCamera = new PhotonCamera("right");
-  public PhotonCamera backCamera = new PhotonCamera("back");
   public PhotonCamera leftCamera = new PhotonCamera("left");
+  public PhotonCamera backCamera = new PhotonCamera("back");
+  public PhotonCamera rightCamera = new PhotonCamera("right");
   PhotonPoseEstimator photonPoseEstimator;
 
   PhotonCamera[] cameras = {
       frontCamera,
-      rightCamera,
+      leftCamera,
       backCamera,
-      leftCamera
+      rightCamera
   };
 
   /* 
   ** Camera orientations relative to robot origin.
   ** Transforms are associated by index with PhotonCamera array (i.e. cameraTransforms[0] -> cameras[0])
-  ** TODO: Make a physical mark on Gary for what we consider to be the origin. 
+  ** TODO: Make a physical mark on Gary for what we consider to be the origin. Also remeasure transforms.
   */
   Transform3d[] cameraTransforms = {
-      new Transform3d(0, 0.175, 0.4, new Rotation3d(0, 0, 0)),
-      new Transform3d(0.495, 0, 0.4, new Rotation3d(0, 0, 1.5 * Math.PI)),
-      new Transform3d(0, -0.155, 0.4, new Rotation3d(0, 0, Math.PI)),
-      new Transform3d(0.485, 0, 0.4, new Rotation3d(0, 0, 0.5 * Math.PI))                                  // robot origin
+      new Transform3d(0.18, -0.32, 0.4, new Rotation3d(0, 0, 0)), // front
+      new Transform3d(0, 0.5, 0.4, new Rotation3d(0, 0, 0.5 * Math.PI)), // left
+      new Transform3d(-0.18, 0.32, 0.4, new Rotation3d(0, 0, Math.PI)), // back
+      new Transform3d(0, -0.5, 0.4, new Rotation3d(0, 0, 1.5 * Math.PI)) // right
+      
   };
 
   private Command m_autonomousCommand;
@@ -158,6 +159,7 @@ public class Robot extends TimedRobot {
       }
     }
   }
+  
 
   public void dumpMultiTagData(PhotonCamera[] cameras, Transform3d[] cameraTransform) {
     for(int cameraIndex = 0; cameraIndex < cameras.length; cameraIndex++){
@@ -190,8 +192,8 @@ public class Robot extends TimedRobot {
   public void robotPeriodic() {
     CommandScheduler.getInstance().run(); // DON'T DELETE
 
-    // dumpSingleTagCameraData(cameras, cameraTransforms);
-    dumpMultiTagData(cameras, cameraTransforms);
+    dumpSingleTagCameraData(cameras, cameraTransforms);
+    // dumpMultiTagData(cameras, cameraTransforms);
   }
 
   @Override
