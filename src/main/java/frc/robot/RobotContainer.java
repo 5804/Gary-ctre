@@ -24,6 +24,7 @@ import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.util.Units;
+import edu.wpi.first.networktables.NetworkTableEntry;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
 import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardTab;
@@ -31,11 +32,15 @@ import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
+import edu.wpi.first.wpilibj2.command.InstantCommand;
+import edu.wpi.first.wpilibj2.command.ParallelCommandGroup;
+import edu.wpi.first.wpilibj2.command.RunCommand;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
 
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
+import pabeles.concurrency.IntOperatorTask.Max;
 
 public class RobotContainer {
     private double MaxSpeed = TunerConstants.kSpeedAt12Volts.in(MetersPerSecond); // kSpeedAt12Volts desired top speed
@@ -80,20 +85,22 @@ public class RobotContainer {
         tab.add("Auto Chooser", autoChooser);
     }
 
+    double speedMultiplier = 0.25;
+
     private void configureBindings() {
         // Note that X is defined as forward according to WPILib convention,
         // and Y is defined as to the left according to WPILib convention.
         drivetrain.setDefaultCommand(
             // Drivetrain will execute this command periodically
             drivetrain.applyRequest(() ->
-                drive.withVelocityX(-joystick.getLeftY() * MaxSpeed) // Drive forward with negative Y (forward)
-                    .withVelocityY(-joystick.getLeftX() * MaxSpeed) // Drive left with negative X (left)
-                    .withRotationalRate(-joystick.getRightX() * MaxAngularRate) // Drive counterclockwise with negative X (left)
+                drive.withVelocityX(-joystick.getLeftY() * MaxSpeed * speedMultiplier) // Drive forward with negative Y (forward)
+                    .withVelocityY(-joystick.getLeftX() * MaxSpeed * speedMultiplier) // Drive left with negative X (left)
+                    .withRotationalRate(-joystick.getRightX() * MaxAngularRate * speedMultiplier) // Drive counterclockwise with negative X (left)
             )
         );
 
         
-        
+        joystick.y().whileTrue(new ParallelCommandGroup(aimAtTarget(), moveToTarget()));
 
         // joystick.a().onTrue(drivetrain.applyRequest());
 
@@ -110,7 +117,8 @@ public class RobotContainer {
         // joystick.start().and(joystick.x()).whileTrue(drivetrain.sysIdQuasistatic(Direction.kReverse));
 
         // // reset the field-centric heading on left bumper press
-        joystick.leftBumper().onTrue(drivetrain.runOnce(() -> drivetrain.seedFieldCentric()));
+
+        // joystick.leftBumper().onTrue(drivetrain.seedFieldCentric());
 
         drivetrain.registerTelemetry(logger::telemeterize);
     }
@@ -139,6 +147,26 @@ public class RobotContainer {
             }
         }
     }
+
+    public Command aimAtTarget() {
+        return drivetrain.applyRequest(() -> 
+                drive.withVelocityX(0)
+                    .withVelocityY(0)
+                    .withRotationalRate(Math.toRadians(Robot.frontTargetYaw) * -1 * MaxAngularRate)
+        );
+    }
+
+    public Command moveToTarget() {
+        return drivetrain.applyRequest(() ->
+            drive.withVelocityX(-1 * MaxSpeed * Robot.frontTargetRangeX)
+                .withVelocityY(-1 * MaxSpeed * Robot.frontTargetRangeY)
+                .withRotationalRate(0)
+        );
+    }
+
+    // public Command aimAtTargetCommand() {
+    //     return new 
+    // }
 
     // Auto Commands
     public Command Test1m() {

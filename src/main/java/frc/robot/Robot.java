@@ -61,8 +61,8 @@ public class Robot extends TimedRobot {
   */
   Transform3d[] cameraTransforms = {
       new Transform3d(0.16, -0.33, 0.4, new Rotation3d(0, 0, 0)), // front
-      new Transform3d(0, 0.5, 0.4, new Rotation3d(0, 0, 0.5 * Math.PI)), // left
-      new Transform3d(-0.18, 0.32, 0.4, new Rotation3d(0, 0, Math.PI)), // back
+      new Transform3d(0, 0.0, 0.4, new Rotation3d(0, 0, 0.5 * Math.PI)), // left
+      new Transform3d(-0.18, 0.34, 0.4, new Rotation3d(0, 0, Math.PI)), // back
       new Transform3d(0, -0.5, 0.4, new Rotation3d(0, 0, 1.5 * Math.PI)) // right
       
   };
@@ -189,10 +189,47 @@ public class Robot extends TimedRobot {
     }
   }
 
+  public static double frontTargetYaw = 0.0;
+  public static double frontTargetRangeX = 0.0;
+  public static double frontTargetRangeY = 0.0;
+
+
+
+  public void findYaw(PhotonCamera[] cameras, Transform3d[] cameraTransforms) {
+
+    boolean targetVisible = false;
+
+    var frameResults = frontCamera.getAllUnreadResults();
+
+      if (!frameResults.isEmpty()) {
+        PhotonPipelineResult result = frameResults.get(frameResults.size() - 1);
+
+        if (result.hasTargets()) {          
+          PhotonTrackedTarget bestTarget = result.getBestTarget();
+          Pose3d estimatedRobotPose = null;
+          
+          for (var target : result.getTargets()) {
+              frontTargetYaw = target.getYaw();
+              targetVisible = true;
+
+              frontTargetRangeX = bestTarget.getBestCameraToTarget().getMeasureX().in(Meters);
+              frontTargetRangeY = bestTarget.getBestCameraToTarget().getMeasureY().in(Meters) - 1; // This value is the offset
+
+              SmartDashboard.putNumber("Yaw", frontTargetYaw);
+              SmartDashboard.putNumber("Range X", frontTargetRangeX);
+              SmartDashboard.putNumber("Range Y", frontTargetRangeY);
+          }
+        }
+      }
+    }
+  
+
+  
+
   @Override
   public void robotPeriodic() {
     CommandScheduler.getInstance().run(); // DON'T DELETE
-
+    findYaw(cameras, cameraTransforms);
     dumpSingleTagCameraData(cameras, cameraTransforms);
     // dumpMultiTagData(cameras, cameraTransforms);
     // RobotContainer.addVisionMeasurementToOdometry(cameras, cameraTransforms);
